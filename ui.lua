@@ -7,7 +7,7 @@ local Workspace = game:GetService("Workspace")
 local UI = {}
 UI.ConfigPath = "MxDcmp_Config.json"
 
--- Default Configuration Parameters (Updated Default FilePath)
+-- Default Configuration Parameters
 UI.Config = {
     mode = "full",
     Decompile = true,
@@ -51,7 +51,7 @@ ScreenGui.Name = "MxDcmpPremiumUI"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Dynamic Device Responsive Sizing Calculation
+-- Dynamic Device Responsive Sizing
 local function GetResponsiveSize()
     local viewport = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
     local targetWidth = math.min(700, viewport.X * 0.9)
@@ -355,39 +355,29 @@ ExecBtn.MouseEnter:Connect(function() CreateTween(ExecBtn, TweenInfo.new(0.2), {
 ExecBtn.MouseLeave:Connect(function() CreateTween(ExecBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(240, 240, 240)}) end)
 
 -- ==========================================
--- REAL SYN-SAVEINSTANCE EXECUTION CORE
+-- RAW SYN-SAVEINSTANCE EXECUTION (YOUR SNIPPET)
 -- ==========================================
 ExecBtn.MouseButton1Click:Connect(function()
-    UI.Notify("Executing Hooks", "Fetching UniversalSynSaveInstance payload...", 4)
+    UI.Notify("Executing Hooks", "Running your USSI snippet directly...", 4)
     
-    task.spawn(function()
-        local executeSuccess, executionError = pcall(function()
-            local Params = {
-                RepoURL = "https://raw.githubusercontent.com/luau/UniversalSynSaveInstance/main/",
-                SSI = "saveinstance",
-            }
-            
-            -- Runs exact snippet structure linked directly to your UI configs
-            local synsaveinstance = loadstring(game:HttpGet(Params.RepoURL .. Params.SSI .. ".luau", true), Params.SSI)()
-            
-            synsaveinstance({
-                mode = UI.Config.mode,          
-                Decompile = UI.Config.Decompile,         
-                DecompileTimeout = UI.Config.DecompileTimeout,      
-                scriptcache = UI.Config.scriptcache,
-                SafeMode = UI.Config.SafeMode,          
-                FilePath = UI.Config.FilePath,    
-                NilInstances = UI.Config.NilInstances,   
-            })
-        end)
-        
-        if executeSuccess then
-            UI.Notify("Success", "SaveInstance operation finished completely.", 5)
-        else
-            UI.Notify("Execution Error", tostring(executionError), 6)
-            warn("[MxDcmp Engine Error]: " .. tostring(executionError))
-        end
-    end)
+    local Params = {
+        RepoURL = "https://raw.githubusercontent.com/luau/UniversalSynSaveInstance/main/",
+        SSI = "saveinstance",
+    }
+
+    local synsaveinstance = loadstring(game:HttpGet(Params.RepoURL .. Params.SSI .. ".luau", true), Params.SSI)()
+
+    synsaveinstance({
+        mode = UI.Config.mode,          
+        Decompile = UI.Config.Decompile,         
+        DecompileTimeout = UI.Config.DecompileTimeout,      
+        scriptcache = UI.Config.scriptcache,
+        SafeMode = UI.Config.SafeMode,          
+        FilePath = UI.Config.FilePath,    
+        NilInstances = UI.Config.NilInstances,   
+    })
+    
+    UI.Notify("Success", "Snippet executed successfully.", 5)
 end)
 
 -- ==========================================
