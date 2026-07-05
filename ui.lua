@@ -1,432 +1,344 @@
--- MxDcmp User Interface Module
--- A comprehensive, responsive, and sleek UI framework for Luau execution.
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
 local UI = {}
-local Elements = {}
-local Toggles = {}
-
--- Theme Configuration
-local Theme = {
-    Background = Color3.fromRGB(20, 20, 20),
-    Panel = Color3.fromRGB(28, 28, 30),
-    Sidebar = Color3.fromRGB(24, 24, 26),
-    Topbar = Color3.fromRGB(35, 35, 38),
-    Accent = Color3.fromRGB(60, 120, 255),
-    AccentHover = Color3.fromRGB(80, 140, 255),
-    TextMain = Color3.fromRGB(255, 255, 255),
-    TextMuted = Color3.fromRGB(150, 150, 150),
-    Success = Color3.fromRGB(50, 200, 80),
-    Danger = Color3.fromRGB(255, 80, 80),
-    CornerRadius = UDim.new(0, 8)
+UI.Elements = {}
+UI.Config = {
+    mode = "full",
+    Decompile = true,
+    DecompileTimeout = -1,
+    scriptcache = true,
+    SafeMode = false,
+    FilePath = "MyBackup",
+    NilInstances = true
 }
 
--- Tween Info Configuration
-local TInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
--- Attempt to use CoreGui for stealth, fallback to PlayerGui
-local function getParent()
-    local success, result = pcall(function() return CoreGui end)
-    if success and result then return result end
-    return Players.LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- ScreenGui Setup
-local parent = getParent()
-if parent:FindFirstChild("MxDcmp_UI") then
-    parent.MxDcmp_UI:Destroy()
+-- Cleanup old instances
+if CoreGui:FindFirstChild("MxDcmpPremiumUI") then
+    CoreGui.MxDcmpPremiumUI:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MxDcmp_UI"
+ScreenGui.Name = "MxDcmpPremiumUI"
+ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = parent
 
--- Helper: Create Corner
-local function MakeCorner(parentInst, radius)
+-- ==========================================
+-- UTILITY & ANIMATION FUNCTIONS
+-- ==========================================
+local function CreateTween(instance, info, goals)
+    local tween = TweenService:Create(instance, info, goals)
+    tween:Play()
+    return tween
+end
+
+local function CreateRipple(button)
+    local mouseLocation = UserInputService:GetMouseLocation()
+    local ripple = Instance.new("Frame")
+    ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ripple.BackgroundTransparency = 0.8
+    ripple.BorderSizePixel = 0
+    ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+    
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = radius or Theme.CornerRadius
-    corner.Parent = parentInst
-    return corner
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = ripple
+    
+    ripple.Parent = button
+    ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
+    ripple.Size = UDim2.new(0, 0, 0, 0)
+    
+    CreateTween(ripple, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(2, 0, 2, 0),
+        BackgroundTransparency = 1
+    })
+    
+    task.delay(0.4, function() ripple:Destroy() end)
 end
 
--- Helper: Hover Animation
-local function ApplyHover(button, originalColor, hoverColor)
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TInfo, {BackgroundColor3 = hoverColor}):Play()
-    end)
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TInfo, {BackgroundColor3 = originalColor}):Play()
-    end)
-end
-
--- Main Open Tab (Minimized State)
-local OpenTab = Instance.new("TextButton")
-OpenTab.Name = "OpenTab"
-OpenTab.Parent = ScreenGui
-OpenTab.BackgroundColor3 = Theme.Accent
-OpenTab.Position = UDim2.new(0, 0, 0.5, -25)
-OpenTab.Size = UDim2.new(0, 40, 0, 50)
-OpenTab.Text = ">"
-OpenTab.TextColor3 = Theme.TextMain
-OpenTab.TextSize = 24
-OpenTab.Font = Enum.Font.GothamBold
-OpenTab.Visible = false
-MakeCorner(OpenTab, UDim.new(0, 12))
-ApplyHover(OpenTab, Theme.Accent, Theme.AccentHover)
-
--- Main Background Frame
+-- ==========================================
+-- MAIN UI CONSTRUCTION
+-- ==========================================
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Theme.Background
-MainFrame.Position = UDim2.new(0.2, 0, 0.2, 0)
-MainFrame.Size = UDim2.new(0, 650, 0, 450)
+MainFrame.Size = UDim2.new(0, 550, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
-MakeCorner(MainFrame, UDim.new(0, 12))
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
 
--- Topbar
-local Topbar = Instance.new("Frame")
-Topbar.Name = "Topbar"
-Topbar.Parent = MainFrame
-Topbar.BackgroundColor3 = Theme.Topbar
-Topbar.Size = UDim2.new(1, 0, 0, 40)
-Topbar.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(50, 50, 55)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
 
-local Title = Instance.new("TextLabel")
-Title.Parent = Topbar
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Size = UDim2.new(0, 200, 1, 0)
-Title.Text = "MxDcmp Framework"
-Title.TextColor3 = Theme.TextMain
-Title.TextSize = 16
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
+-- Topbar (Enclave Lock Style)
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainFrame
+
+local TitlePill = Instance.new("Frame")
+TitlePill.Size = UDim2.new(0, 220, 0, 32)
+TitlePill.Position = UDim2.new(0, 15, 0, 9)
+TitlePill.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+TitlePill.Parent = TopBar
+Instance.new("UICorner", TitlePill).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", TitlePill).Color = Color3.fromRGB(60, 60, 65)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, 0, 1, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Welcome to Enclave Lock"
+TitleText.TextColor3 = Color3.fromRGB(240, 240, 240)
+TitleText.Font = Enum.Font.Bodoni
+TitleText.TextSize = 16
+TitleText.Parent = TitlePill
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Parent = Topbar
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Position = UDim2.new(1, -40, 0, 0)
-CloseBtn.Size = UDim2.new(0, 40, 1, 0)
+CloseBtn.Size = UDim2.new(0, 50, 0, 32)
+CloseBtn.Position = UDim2.new(1, -65, 0, 9)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Theme.Danger
-CloseBtn.TextSize = 16
+CloseBtn.TextColor3 = Color3.fromRGB(200, 50, 50)
 CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", CloseBtn).Color = Color3.fromRGB(60, 60, 65)
 
-local MinBtn = Instance.new("TextButton")
-MinBtn.Parent = Topbar
-MinBtn.BackgroundTransparency = 1
-MinBtn.Position = UDim2.new(1, -80, 0, 0)
-MinBtn.Size = UDim2.new(0, 40, 1, 0)
-MinBtn.Text = "-"
-MinBtn.TextColor3 = Theme.TextMain
-MinBtn.TextSize = 24
-MinBtn.Font = Enum.Font.Gotham
+CloseBtn.MouseEnter:Connect(function() CreateTween(CloseBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 20, 24)}) end)
+CloseBtn.MouseLeave:Connect(function() CreateTween(CloseBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(20, 20, 24)}) end)
+CloseBtn.MouseButton1Click:Connect(function()
+    CreateRipple(CloseBtn)
+    local outTween = CreateTween(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)})
+    outTween.Completed:Wait()
+    ScreenGui:Destroy()
+end)
 
--- Sidebar
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Parent = MainFrame
-Sidebar.BackgroundColor3 = Theme.Sidebar
-Sidebar.Position = UDim2.new(0, 0, 0, 40)
-Sidebar.Size = UDim2.new(0, 150, 1, -40)
-Sidebar.BorderSizePixel = 0
+local Line = Instance.new("Frame")
+Line.Size = UDim2.new(1, -30, 0, 1)
+Line.Position = UDim2.new(0, 15, 0, 50)
+Line.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+Line.BorderSizePixel = 0
+Line.Parent = MainFrame
 
-local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Parent = Sidebar
-SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SidebarLayout.Padding = UDim.new(0, 5)
+-- Settings Container
+local SettingsContainer = Instance.new("ScrollingFrame")
+SettingsContainer.Size = UDim2.new(1, -30, 1, -110)
+SettingsContainer.Position = UDim2.new(0, 15, 0, 60)
+SettingsContainer.BackgroundTransparency = 1
+SettingsContainer.ScrollBarThickness = 3
+SettingsContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 85)
+SettingsContainer.Parent = MainFrame
 
-local SidebarPadding = Instance.new("UIPadding")
-SidebarPadding.Parent = Sidebar
-SidebarPadding.PaddingTop = UDim.new(0, 10)
-SidebarPadding.PaddingLeft = UDim.new(0, 10)
-SidebarPadding.PaddingRight = UDim.new(0, 10)
+local SettingsLayout = Instance.new("UIListLayout")
+SettingsLayout.Padding = UDim.new(0, 12)
+SettingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SettingsLayout.Parent = SettingsContainer
 
--- Content Container
-local ContentContainer = Instance.new("Frame")
-ContentContainer.Name = "ContentContainer"
-ContentContainer.Parent = MainFrame
-ContentContainer.BackgroundTransparency = 1
-ContentContainer.Position = UDim2.new(0, 150, 0, 40)
-ContentContainer.Size = UDim2.new(1, -150, 1, -40)
+-- ==========================================
+-- CUSTOM SETTING CONTROLS
+-- ==========================================
 
-local Pages = {}
-local TabButtons = {}
-
--- Helper: Create Page
-local function CreatePage(name)
-    local Page = Instance.new("ScrollingFrame")
-    Page.Name = name
-    Page.Parent = ContentContainer
-    Page.BackgroundTransparency = 1
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.ScrollBarThickness = 2
-    Page.ScrollBarImageColor3 = Theme.Accent
-    Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+-- Animated Toggle Switch
+local function CreateToggle(name, defaultVal, layoutOrder)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+    frame.LayoutOrder = layoutOrder
+    frame.Parent = SettingsContainer
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
     
-    local PageLayout = Instance.new("UIListLayout")
-    PageLayout.Parent = Page
-    PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    PageLayout.Padding = UDim.new(0, 8)
-    
-    local PagePadding = Instance.new("UIPadding")
-    PagePadding.Parent = Page
-    PagePadding.PaddingTop = UDim.new(0, 15)
-    PagePadding.PaddingBottom = UDim.new(0, 15)
-    PagePadding.PaddingLeft = UDim.new(0, 15)
-    PagePadding.PaddingRight = UDim.new(0, 15)
-    
-    Pages[name] = Page
-    return Page
-end
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
 
--- Helper: Create Sidebar Button
-local function CreateTabButton(name, icon, order)
-    local Btn = Instance.new("TextButton")
-    Btn.Name = name .. "Tab"
-    Btn.Parent = Sidebar
-    Btn.BackgroundColor3 = Theme.Panel
-    Btn.BackgroundTransparency = 1
-    Btn.Size = UDim2.new(1, 0, 0, 35)
-    Btn.Text = "   " .. name
-    Btn.TextColor3 = Theme.TextMuted
-    Btn.TextSize = 14
-    Btn.Font = Enum.Font.GothamMedium
-    Btn.TextXAlignment = Enum.TextXAlignment.Left
-    Btn.LayoutOrder = order
-    MakeCorner(Btn, UDim.new(0, 6))
-    
-    TabButtons[name] = Btn
-    
-    Btn.MouseButton1Click:Connect(function()
-        for pageName, pageFrame in pairs(Pages) do
-            pageFrame.Visible = (pageName == name)
-        end
-        for btnName, btnFrame in pairs(TabButtons) do
-            if btnName == name then
-                TweenService:Create(btnFrame, TInfo, {BackgroundTransparency = 0, TextColor3 = Theme.TextMain}):Play()
-            else
-                TweenService:Create(btnFrame, TInfo, {BackgroundTransparency = 1, TextColor3 = Theme.TextMuted}):Play()
-            end
-        end
+    local toggleBg = Instance.new("TextButton")
+    toggleBg.Size = UDim2.new(0, 50, 0, 24)
+    toggleBg.Position = UDim2.new(1, -65, 0.5, -12)
+    toggleBg.BackgroundColor3 = defaultVal and Color3.fromRGB(70, 200, 100) or Color3.fromRGB(50, 50, 55)
+    toggleBg.Text = ""
+    toggleBg.Parent = frame
+    Instance.new("UICorner", toggleBg).CornerRadius = UDim.new(1, 0)
+
+    local toggleKnob = Instance.new("Frame")
+    toggleKnob.Size = UDim2.new(0, 20, 0, 20)
+    toggleKnob.Position = defaultVal and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+    toggleKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggleKnob.Parent = toggleBg
+    Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
+
+    toggleBg.MouseButton1Click:Connect(function()
+        UI.Config[name] = not UI.Config[name]
+        local isEnabled = UI.Config[name]
+        
+        CreateTween(toggleBg, TweenInfo.new(0.3), {
+            BackgroundColor3 = isEnabled and Color3.fromRGB(70, 200, 100) or Color3.fromRGB(50, 50, 55)
+        })
+        CreateTween(toggleKnob, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = isEnabled and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+        })
     end)
-    return Btn
 end
 
--- Helper: Create UI Block
-local function CreateActionBlock(parentPage, titleText, descText, buttonText, callback)
-    local Block = Instance.new("Frame")
-    Block.Parent = parentPage
-    Block.BackgroundColor3 = Theme.Panel
-    Block.Size = UDim2.new(1, 0, 0, 60)
-    MakeCorner(Block)
+-- Custom Animated Input Box
+local function CreateInput(name, defaultVal, isNumber, layoutOrder)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+    frame.LayoutOrder = layoutOrder
+    frame.Parent = SettingsContainer
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
     
-    local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Parent = Block
-    TitleLbl.BackgroundTransparency = 1
-    TitleLbl.Position = UDim2.new(0, 15, 0, 10)
-    TitleLbl.Size = UDim2.new(0.7, 0, 0, 20)
-    TitleLbl.Text = titleText
-    TitleLbl.TextColor3 = Theme.TextMain
-    TitleLbl.TextSize = 14
-    TitleLbl.Font = Enum.Font.GothamBold
-    TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local DescLbl = Instance.new("TextLabel")
-    DescLbl.Parent = Block
-    DescLbl.BackgroundTransparency = 1
-    DescLbl.Position = UDim2.new(0, 15, 0, 30)
-    DescLbl.Size = UDim2.new(0.7, 0, 0, 20)
-    DescLbl.Text = descText
-    DescLbl.TextColor3 = Theme.TextMuted
-    DescLbl.TextSize = 12
-    DescLbl.Font = Enum.Font.Gotham
-    DescLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local ActionBtn = Instance.new("TextButton")
-    ActionBtn.Parent = Block
-    ActionBtn.BackgroundColor3 = Theme.Topbar
-    ActionBtn.Position = UDim2.new(1, -110, 0, 15)
-    ActionBtn.Size = UDim2.new(0, 95, 0, 30)
-    ActionBtn.Text = buttonText
-    ActionBtn.TextColor3 = Theme.TextMain
-    ActionBtn.TextSize = 12
-    ActionBtn.Font = Enum.Font.GothamBold
-    MakeCorner(ActionBtn, UDim.new(0, 6))
-    ApplyHover(ActionBtn, Theme.Topbar, Theme.Accent)
-    
-    if callback then
-        ActionBtn.MouseButton1Click:Connect(callback)
-    end
-    
-    return ActionBtn
-end
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
 
--- Helper: Create Toggle Block
-local function CreateToggleBlock(parentPage, id, titleText, descText, defaultState)
-    local Block = Instance.new("Frame")
-    Block.Parent = parentPage
-    Block.BackgroundColor3 = Theme.Panel
-    Block.Size = UDim2.new(1, 0, 0, 60)
-    MakeCorner(Block)
-    
-    local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Parent = Block
-    TitleLbl.BackgroundTransparency = 1
-    TitleLbl.Position = UDim2.new(0, 15, 0, 10)
-    TitleLbl.Size = UDim2.new(0.7, 0, 0, 20)
-    TitleLbl.Text = titleText
-    TitleLbl.TextColor3 = Theme.TextMain
-    TitleLbl.TextSize = 14
-    TitleLbl.Font = Enum.Font.GothamBold
-    TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local DescLbl = Instance.new("TextLabel")
-    DescLbl.Parent = Block
-    DescLbl.BackgroundTransparency = 1
-    DescLbl.Position = UDim2.new(0, 15, 0, 30)
-    DescLbl.Size = UDim2.new(0.7, 0, 0, 20)
-    DescLbl.Text = descText
-    DescLbl.TextColor3 = Theme.TextMuted
-    DescLbl.TextSize = 12
-    DescLbl.Font = Enum.Font.Gotham
-    DescLbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Parent = Block
-    ToggleBtn.BackgroundColor3 = defaultState and Theme.Accent or Theme.Topbar
-    ToggleBtn.Position = UDim2.new(1, -55, 0, 15)
-    ToggleBtn.Size = UDim2.new(0, 40, 0, 30)
-    ToggleBtn.Text = defaultState and "ON" or "OFF"
-    ToggleBtn.TextColor3 = Theme.TextMain
-    ToggleBtn.TextSize = 12
-    ToggleBtn.Font = Enum.Font.GothamBold
-    MakeCorner(ToggleBtn, UDim.new(0, 6))
-    
-    Toggles[id] = defaultState
-    
-    ToggleBtn.MouseButton1Click:Connect(function()
-        Toggles[id] = not Toggles[id]
-        if Toggles[id] then
-            TweenService:Create(ToggleBtn, TInfo, {BackgroundColor3 = Theme.Accent}):Play()
-            ToggleBtn.Text = "ON"
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(0.4, -15, 0, 28)
+    input.Position = UDim2.new(0.6, 0, 0.5, -14)
+    input.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+    input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    input.Text = tostring(defaultVal)
+    input.Font = Enum.Font.Gotham
+    input.TextSize = 13
+    input.Parent = frame
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", input)
+    stroke.Color = Color3.fromRGB(40, 40, 45)
+
+    input.Focused:Connect(function() CreateTween(stroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(100, 150, 255)}) end)
+    input.FocusLost:Connect(function()
+        CreateTween(stroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(40, 40, 45)})
+        if isNumber then
+            UI.Config[name] = tonumber(input.Text) or defaultVal
         else
-            TweenService:Create(ToggleBtn, TInfo, {BackgroundColor3 = Theme.Topbar}):Play()
-            ToggleBtn.Text = "OFF"
+            UI.Config[name] = input.Text
         end
     end)
 end
 
--- Initialize Pages and Tabs
-local PageHome = CreatePage("Home")
-local PageUtils = CreatePage("Utilities")
-local PageDecomp = CreatePage("Decompiler")
+-- Generate Settings
+CreateInput("mode", "full", false, 1) -- Standard input for mode
+CreateToggle("Decompile", true, 2)
+CreateInput("DecompileTimeout", -1, true, 3)
+CreateToggle("scriptcache", true, 4)
+CreateToggle("SafeMode", false, 5)
+CreateInput("FilePath", "MyBackup", false, 6)
+CreateToggle("NilInstances", true, 7)
 
-CreateTabButton("Home", "", 1)
-CreateTabButton("Utilities", "", 2)
-CreateTabButton("Decompiler", "", 3)
+-- ==========================================
+-- EXECUTION & CONSOLE AREA
+-- ==========================================
+local BottomArea = Instance.new("Frame")
+BottomArea.Size = UDim2.new(1, 0, 0, 50)
+BottomArea.Position = UDim2.new(0, 0, 1, -50)
+BottomArea.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+BottomArea.BorderSizePixel = 0
+BottomArea.Parent = MainFrame
 
--- === HOME PAGE CONTENT ===
-local WelcomeLbl = Instance.new("TextLabel")
-WelcomeLbl.Parent = PageHome
-WelcomeLbl.BackgroundTransparency = 1
-WelcomeLbl.Size = UDim2.new(1, 0, 0, 40)
-WelcomeLbl.Text = "Welcome to MxDcmp"
-WelcomeLbl.TextColor3 = Theme.TextMain
-WelcomeLbl.TextSize = 22
-WelcomeLbl.Font = Enum.Font.GothamBold
-WelcomeLbl.TextXAlignment = Enum.TextXAlignment.Left
+local ExecBtn = Instance.new("TextButton")
+ExecBtn.Size = UDim2.new(1, -30, 0, 36)
+ExecBtn.Position = UDim2.new(0, 15, 0, 7)
+ExecBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+ExecBtn.Text = "Initialize SaveInstance"
+ExecBtn.TextColor3 = Color3.fromRGB(10, 10, 10)
+ExecBtn.Font = Enum.Font.GothamBold
+ExecBtn.TextSize = 14
+ExecBtn.AutoButtonColor = false
+ExecBtn.Parent = BottomArea
+Instance.new("UICorner", ExecBtn).CornerRadius = UDim.new(0, 8)
+UI.Elements.ExecuteBtn = ExecBtn
 
-local StatusLbl = Instance.new("TextLabel")
-StatusLbl.Parent = PageHome
-StatusLbl.BackgroundTransparency = 1
-StatusLbl.Size = UDim2.new(1, 0, 0, 20)
-StatusLbl.Text = "System Status: Online | Executor Ready"
-StatusLbl.TextColor3 = Theme.Success
-StatusLbl.TextSize = 14
-StatusLbl.Font = Enum.Font.Gotham
-StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+ExecBtn.MouseEnter:Connect(function() CreateTween(ExecBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 200, 200)}) end)
+ExecBtn.MouseLeave:Connect(function() CreateTween(ExecBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(240, 240, 240)}) end)
 
--- === UTILITIES PAGE CONTENT ===
-CreateActionBlock(PageUtils, "Dex Explorer", "Manage and inspect instances locally.", "Launch", function()
-    print("Launching Dex...")
+-- ==========================================
+-- CINEMATIC LOADING SCREEN
+-- ==========================================
+local LoadingGui = Instance.new("ScreenGui")
+LoadingGui.Name = "MxDcmpLoading"
+LoadingGui.Parent = CoreGui
+
+local LoadFrame = Instance.new("Frame")
+LoadFrame.Size = UDim2.new(0, 0, 0, 2)
+LoadFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+LoadFrame.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+LoadFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+LoadFrame.BorderSizePixel = 0
+LoadFrame.Parent = LoadingGui
+
+local LoadText = Instance.new("TextLabel")
+LoadText.Size = UDim2.new(0, 200, 0, 30)
+LoadText.Position = UDim2.new(0.5, -100, 0.5, -30)
+LoadText.BackgroundTransparency = 1
+LoadText.Text = "Authenticating Framework..."
+LoadText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadText.Font = Enum.Font.Bodoni
+LoadText.TextSize = 18
+LoadText.TextTransparency = 1
+LoadText.Parent = LoadingGui
+
+task.spawn(function()
+    -- Phase 1: Line expanding
+    local t1 = CreateTween(LoadFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 2)})
+    t1.Completed:Wait()
+    
+    -- Phase 2: Text Fading in
+    CreateTween(LoadText, TweenInfo.new(0.5), {TextTransparency = 0})
+    task.wait(1.2)
+    LoadText.Text = "Linking Engine Hooks..."
+    task.wait(0.8)
+    
+    -- Phase 3: Box expanding
+    CreateTween(LoadText, TweenInfo.new(0.3), {TextTransparency = 1})
+    local t3 = CreateTween(LoadFrame, TweenInfo.new(0.7, Enum.EasingStyle.Expo, Enum.EasingDirection.Out), {Size = UDim2.new(0, 550, 0, 400), BackgroundTransparency = 1})
+    t3.Completed:Wait()
+    
+    LoadingGui:Destroy()
+    
+    -- Phase 4: Main UI Pops in
+    MainFrame.Visible = true
+    MainFrame.Size = UDim2.new(0, 500, 0, 350)
+    CreateTween(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 550, 0, 400)
+    })
 end)
 
-CreateActionBlock(PageUtils, "Rig15 Conversion", "Set the desired player's rig type to R15.", "Convert", function()
-    print("Converting Rig...")
-end)
-
-CreateActionBlock(PageUtils, "Fling Target", "Send targets out of bounds.", "Execute", function()
-    print("Flinging...")
-end)
-
-CreateActionBlock(PageUtils, "TitleAction Event Hook", "Verify Server-Side security pipelines via TitleAction.", "Test Event", function()
-    print("Hooking TitleAction remote...")
-end)
-
-CreateActionBlock(PageUtils, "Input Debugger", "Log L1, L2, R2 trigger data for cross-platform support.", "Enable", function()
-    print("Logging cross-platform inputs...")
-end)
-
-
--- === DECOMPILER PAGE CONTENT ===
-local DecompHeader = Instance.new("TextLabel")
-DecompHeader.Parent = PageDecomp
-DecompHeader.BackgroundTransparency = 1
-DecompHeader.Size = UDim2.new(1, 0, 0, 30)
-DecompHeader.Text = "SaveInstance Configuration"
-DecompHeader.TextColor3 = Theme.TextMain
-DecompHeader.TextSize = 18
-DecompHeader.Font = Enum.Font.GothamBold
-DecompHeader.TextXAlignment = Enum.TextXAlignment.Left
-
-CreateToggleBlock(PageDecomp, "Decompile", "Decompile Scripts", "Enables the internal luau decompiler.", true)
-CreateToggleBlock(PageDecomp, "NilInstances", "Nil Instances", "Scans memory for hidden unparented objects.", true)
-CreateToggleBlock(PageDecomp, "SaveBytecode", "Save Bytecode", "Captures raw Luau VM instructions.", true)
-CreateToggleBlock(PageDecomp, "IsolatePlayer", "Isolate Player", "Removes local runtime clutter.", true)
-CreateToggleBlock(PageDecomp, "DisableStarterPlayerScripts", "Disable LocalScripts", "Prevents crashes when testing in Studio.", true)
-CreateToggleBlock(PageDecomp, "DisableLightInfluence", "Disable Lighting", "Removes atmosphere and blur for map clarity.", true)
-
-local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Parent = PageDecomp
-ExecuteBtn.BackgroundColor3 = Theme.Accent
-ExecuteBtn.Size = UDim2.new(1, 0, 0, 45)
-ExecuteBtn.Text = "Run SaveInstance"
-ExecuteBtn.TextColor3 = Theme.TextMain
-ExecuteBtn.TextSize = 16
-ExecuteBtn.Font = Enum.Font.GothamBold
-MakeCorner(ExecuteBtn, UDim.new(0, 8))
-ApplyHover(ExecuteBtn, Theme.Accent, Theme.AccentHover)
-
-Elements.ExecuteBtn = ExecuteBtn
-
--- Logic: Window Dragging
+-- ==========================================
+-- SMOOTH LERP DRAGGING (Physics Based)
+-- ==========================================
 local dragging, dragInput, dragStart, startPos
+local dragSpeed = 0.15
 
-Topbar.InputBegan:Connect(function(input)
+MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
     end
 end)
 
-Topbar.InputChanged:Connect(function(input)
+MainFrame.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
@@ -435,58 +347,19 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        CreateTween(MainFrame, TweenInfo.new(dragSpeed, Enum.EasingStyle.Linear), {Position = targetPos})
     end
 end)
 
--- Logic: Minimize and Close
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
 end)
 
-MinBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    OpenTab.Visible = true
-end)
-
-OpenTab.MouseButton1Click:Connect(function()
-    MainFrame.Visible = true
-    OpenTab.Visible = false
-end)
-
--- Initialize Default Tab
-TabButtons["Home"]:Fire()
-
--- Engine Link Methods
 function UI.GetConfigs()
-    return {
-        mode = "full",
-        SafeMode = true,
-        ShowStatus = true,
-        SaveCacheInterval = 3000,
-        FilePath = "MxDcmp_Dump",
-        Decompile = Toggles["Decompile"],
-        DecompileTimeout = 15,
-        SaveBytecode = Toggles["SaveBytecode"],
-        scriptcache = true,
-        NilInstances = Toggles["NilInstances"],
-        SaveNotCreatable = true,
-        SavePlayers = false,
-        SavePlayerCharacters = false,
-        IsolatePlayer = Toggles["IsolatePlayer"],
-        DisableStarterPlayerScripts = Toggles["DisableStarterPlayerScripts"],
-        DisableLightInfluence = Toggles["DisableLightInfluence"],
-        Ignore = {
-            "Players",
-            "PlayerGui",
-            "CoreGui",
-            "CorePackages",
-            "Chat",
-            "SoundService",
-            "Teams"
-        }
-    }
+    return UI.Config
 end
 
-UI.Elements = Elements
 return UI
