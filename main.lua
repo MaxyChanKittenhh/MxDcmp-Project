@@ -1,12 +1,11 @@
--- MxDcmp Master Loader (main.lua)
--- IMPORTANT: Change these two variables to match your exact GitHub details.
-local GitHubUser = "YOUR_GITHUB_USER" 
-local RepoName = "YOUR_REPO_NAME"
+-- MxDcmp Master Loader
+local GitHubUser = "MaxyChanKittenhh" 
+local RepoName = "MxDcmp-Project"
 local Branch = "main"
 
 local BaseURL = string.format("https://raw.githubusercontent.com/%s/%s/%s/", GitHubUser, RepoName, Branch)
 
--- Cache-Buster: Forces the executor to download the newest version of your files, ignoring GitHub's cache.
+-- Cache-Buster: Forces the executor to download the newest version of your files
 local CacheBust = "?t=" .. tostring(os.time())
 
 print("[MxDcmp] Fetching modules from GitHub...")
@@ -28,8 +27,7 @@ if ui_success and engine_success then
             -- Visual feedback on the button
             UI.Elements.ExecuteBtn.Text = "Saving... Check Console"
             
-            -- UI.GetConfigs() automatically grabs the mode, SafeMode, FilePath, 
-            -- and all the ON/OFF states of the toggles you added to the menu.
+            -- Fetch settings from the toggles in your UI
             local currentSettings = UI.GetConfigs()
             
             -- Send those settings into the engine to begin the map dump
@@ -42,12 +40,11 @@ if ui_success and engine_success then
         
         print("[MxDcmp] UI and Engine successfully linked. Ready to use.")
     else
-        warn("[MxDcmp] Modules loaded, but failed to return their tables. Check the return statements in your files.")
+        warn("[MxDcmp] Modules loaded, but failed to return their tables. Check your ui.lua and engine.lua syntax.")
     end
 else
     warn("[MxDcmp] CRITICAL ERROR: Failed to fetch files from GitHub.")
-    warn("1. Verify your GitHub Username and RepoName at the top of this script.")
-    warn("2. Ensure your GitHub Repository is set to PUBLIC, not Private.")
+    warn("Make sure your repository is Public.")
     if not ui_success then warn("UI Fetch Error: " .. tostring(ui_code)) end
     if not engine_success then warn("Engine Fetch Error: " .. tostring(engine_code)) end
 end
